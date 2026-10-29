@@ -1,3 +1,16 @@
+import { lesJson } from './felles.js';
+
+function finnLignendeHendelser({ tjeneste, tekst } = {}) {
+  const hendelser = lesJson('hendelser.json');
+  const sok = tekst?.toLowerCase();
+  const treff = hendelser.filter((h) =>
+    (!tjeneste || h.tjeneste === tjeneste) &&
+    (!sok || [h.tittel, h.sammendrag, h.rotårsak].some((felt) => felt?.toLowerCase().includes(sok))));
+
+  if (treff.length === 0) return 'Ingen tidligere hendelser matchet filteret. Prøv et bredere søkeord eller utelat tjenesten.';
+  return treff;
+}
+
 export default {
   definisjon: {
     name: 'finn_lignende_hendelser',
@@ -8,11 +21,9 @@ export default {
       type: 'object',
       properties: {
         tjeneste: { type: 'string', description: 'Bare hendelser for denne tjenesten.' },
-        tekst: { type: 'string', description: 'Søkeord, f.eks. "disk" eller "timeout".' },
+        tekst: { type: 'string', description: 'Søkeord, f.eks. "disk" eller "timeout". Søker i tittel, sammendrag og rotårsak.' },
       },
     },
   },
-  // TODO: lesJson('hendelser.json') og filtrer på tjeneste og/eller om tekst finnes
-  // i tittel, sammendrag eller rotårsak. Enkel tekstmatch holder lenge.
-  kjør: null,
+  kjør: async (input, kontekst) => finnLignendeHendelser(input, kontekst),
 };

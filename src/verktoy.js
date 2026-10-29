@@ -5,6 +5,7 @@ import sokILogger from './verktoy/sok_i_logger.js';
 import hentRunbook from './verktoy/hent_runbook.js';
 import sjekkDeployHistorikk from './verktoy/sjekk_deploy_historikk.js';
 import finnLignendeHendelser from './verktoy/finn_lignende_hendelser.js';
+import hentTjenesteinfo from './verktoy/hent_tjenesteinfo.js';
 
 export const system = `Du tar første vakt når en alarm går om natta, før et menneske rekker å åpne laptopen.
 Grav i loggene og de andre kildene til du har en hypotese om hva som skjer og hvorfor.
@@ -15,4 +16,4 @@ Avslutt med en kort situasjonsrapport på norsk: alvorlighet, berørt tjeneste, 
 export const eksempelOppgave =
   'ALARM kl 03:12 natt til 29. oktober: betaling: andel 5xx-svar siste 5 min er 9.4 % (terskel 5 %). Gjelder POST /betaling/trekk.';
 
-export const verktøy = [sokILogger, hentRunbook, sjekkDeployHistorikk, finnLignendeHendelser];
+export const verktøy = [sokILogger, hentRunbook, sjekkDeployHistorikk, finnLignendeHendelser, hentTjenesteinfo];
