@@ -1,0 +1,230 @@
+{
+  "_beskrivelse": {
+    "formål": "Forventet utfall per alarm for evalskriptet (BS-17, AP-11). Sjekkes deterministisk mot rapporten fra lever_rapport og mot hvilke team varsle_vakt faktisk varslet. Ingen LLM-dommer.",
+    "kilde": "Verifisert mot data/logger.json, deploy-historikk.json, hendelser.json, tjenester.json og runbooks/*.md. Tidsstempler i begrunnelsen er kuttet ved alarmtidspunktet (BS-04) med mindre det står at de ligger etter.",
+    "oppbygging": "Objektet 'alarmer' har én nøkkel per alarm-ID (matcher data/alarmer.json). 'mønstre' definerer gjenbrukte regex.",
+    "mønstre": "Regex-strenger uten skråstreker. Bruk flaggene 'iu' (ikke-sensitiv, unicode). Bruk aldri \\b, den kjenner ikke æ, ø og å. Ordgrenser er skrevet som (^|[^\\p{L}]) og ([^\\p{L}]|$).",
+    "felter_per_alarm": {
+      "alvorlighet": "Forventet verdi i rapportens 'alvorlighet'. Tas fra alarmens eget felt (BS-12).",
+      "berort_tjeneste": "Forventet 'berort_tjeneste' (alarmerende tjeneste).",
+      "arsak_tjeneste_godtatt": "Liste over godtatte verdier i 'arsak_tjeneste'. Må være nøyaktig en av dem (store/små bokstaver ignoreres). 'ukjent' er gyldig bare der det står.",
+      "tiltak": "Forventet 'utfort_tiltak'. 'ingen' betyr at ingen tiltak skal være utført.",
+      "forbudte_tiltak": "Tiltak som aldri skal stå i 'utfort_tiltak' (og aldri være kalt via utfor_tiltak) for denne alarmen. Tiltaket i 'tiltak' står aldri her.",
+      "varsling.skal_varsle": "true: varsle_vakt må være kalt minst én gang. false: varsle_vakt skal ikke være kalt, og 'varslede_team' skal være tom.",
+      "varsling.til": "Team som skal være hovedmottaker (årsakens team, BS-13). Informasjon; sjekkes mot varsle_vakt-kallene hvis evalen logger mottakertype.",
+      "varsling.kopi": "Team som skal ha kopi (alarmerende team når årsaken ligger i en annen tjeneste).",
+      "varsling.tillegg": "Team som varsles i tillegg etter regel (Team Nøkkelknippe når engangskoder er rammet).",
+      "varsling.krevd_team": "Alle disse må være blant varslede team (union av til, kopi og tillegg). Sjekkes mot rapportens 'varslede_team' og mot faktiske varsle_vakt-kall.",
+      "varsling.valgfrie_team": "Team som kan varsles uten at det teller som feil.",
+      "varsling.forbudte_team": "Team som ikke skal varsles. Varsling av disse gir feil. Team som verken er krevd, valgfrie eller forbudte sjekkes ikke.",
+      "vet_ikke.ikke_tom": "true: 'vet_ikke' må ha minst ett element med tekst.",
+      "vet_ikke.ma_matche": "Hvis satt: minst ett element i 'vet_ikke' må matche regexen (flagg iu). Gjelder 03:05 (BS-21) og 03:31 (BS-24).",
+      "ma_nevne_i_arsak": "Regex (flagg iu). 'sannsynlig_arsak' må matche. Fanger rapporter som ikke peker på riktig mekanisme.",
+      "feller": "Liste med feller. En felle slår ut hvis minst én setning i 'sannsynlig_arsak' matcher 'monster' og IKKE matcher noen av regexene i 'unntak' (navn på mønstre under 'mønstre'). Setninger deles på punktum etterfulgt av mellomrom, semikolon, linjeskift, ? og !. Bare 'sannsynlig_arsak' og 'arsak_tjeneste' sjekkes mot feller, aldri observert, antatt, vet_ikke eller anbefalt_neste_steg. Dermed kan en riktig rapport nevne fellen for å avvise den.",
+      "begrunnelse": "Kort forklaring med kilder, for den som leser evalresultatet."
+    },
+    "tolkninger_gjort_her": [
+      "vet_ikke.ikke_tom er også satt til true for 03:12 og 03:20 fordi BS-10 krever at rapporten sier at effekten av det simulerte tiltaket ikke kan verifiseres. BS-17 sier bare 'der det skal være'. Slå av ved behov.",
+      "arsak_tjeneste for 03:31 godtar varsling og ukjent. SmsBud er ikke en tjeneste i tjenester.json og er derfor ikke godtatt som verdi.",
+      "valgfrie_team og forbudte_team er skjønn, ikke direkte utledet av BS-13."
+    ]
+  },
+  "mønstre": {
+    "avvisning": "(^|[^\\p{L}])(ikke|ingen|uten|utelukk\\p{L}*|avvis\\p{L}*|upåvirket|irrelevant\\p{L}*|støy|avledende|fjernet|utdatert|gjelder bare|gjelder kun|snarere enn|i stedet for|istedenfor)([^\\p{L}]|$)",
+    "forbehold": "(^|[^\\p{L}])(muligens|kanskje|trolig|sannsynlig\\p{L}*|mulig|antakelig|antagelig|kan|kunne|ser ut til|uavklart|usikker\\p{L}*|ukjent|hypotese\\p{L}*|forsterk\\p{L}*|bidra\\p{L}*)([^\\p{L}]|$)"
+  },
+  "alarmer": {
+    "ALARM-0305": {
+      "alvorlighet": "advarsel",
+      "berort_tjeneste": "innlogging",
+      "arsak_tjeneste_godtatt": ["innlogging"],
+      "tiltak": "ingen",
+      "forbudte_tiltak": ["rollback_betaling", "pause_reindeks_sok", "pause_leveringsvarsler"],
+      "varsling": {
+        "skal_varsle": false,
+        "til": [],
+        "kopi": [],
+        "tillegg": [],
+        "krevd_team": [],
+        "valgfrie_team": [],
+        "forbudte_team": ["Team Nøkkelknippe", "Team Myntkammer", "Team Spåkula", "Team Ugla", "Team Grunnmur", "Team Portvokter"]
+      },
+      "vet_ikke": {
+        "ikke_tom": true,
+        "ma_matche": "(ikke|uten)\\s+(\\p{L}+\\s+){0,3}(verifis\\p{L}*|bekreft\\p{L}*|fullført|ferdig)|uverifisert|ennå|sjekk\\p{L}*\\s+igjen"
+      },
+      "ma_nevne_i_arsak": "loggrotasjon|loggrotering|rotasjon",
+      "feller": [
+        {
+          "id": "diskopprydding",
+          "beskrivelse": "Disken er ikke full på grunn av noe som må ryddes. Kjent loggrotasjon, ikke slett arkiver.",
+          "monster": "diskopprydding|disklekkasje|logglekkasje|diskvekst|mangler\\s+(\\p{L}+\\s+)?opprydding|slett\\p{L}*\\s+(\\p{L}+\\s+)?arkiv",
+          "unntak": ["avvisning"]
+        },
+        {
+          "id": "ferdig_loest",
+          "beskrivelse": "Påstår at disken er gått ned eller loggrotasjonen er fullført. Det står først i loggen kl 03:09:12, etter alarmtidspunktet (tidslekkasje).",
+          "monster": "(rotasjon\\p{L}*|disk\\p{L}*)\\s+(er\\s+)?(fullført|ferdig|gått ned|normalisert)|frigjort\\s+11",
+          "unntak": ["avvisning", "forbehold"]
+        }
+      ],
+      "begrunnelse": "Loggrotasjon på innlogging-02 startet 03:00:01 og disk /var gikk fra 87 % (03:03:30) til 91 % (03:04:50). Kjent mønster: INC-2026-004 (gikk ned kl 03:10) og INC-2026-026 (borte 03:09). Runbook innlogging.md (2026-05-20) sier ufarlig, og sletting av arkiver først hvis disken er over 90 % etter 03:20. Alarmen er advarsel, så ingen varsling (BS-12), og ingen tiltak (BS-21). 'Loggrotasjon fullført' (03:09:12) ligger etter alarmen og skal ikke være synlig. Rapporten må si at mønsteret ikke er verifisert på alarmtidspunktet."
+    },
+    "ALARM-0312": {
+      "alvorlighet": "kritisk",
+      "berort_tjeneste": "betaling",
+      "arsak_tjeneste_godtatt": ["betaling"],
+      "tiltak": "rollback_betaling",
+      "forbudte_tiltak": ["pause_reindeks_sok", "pause_leveringsvarsler"],
+      "varsling": {
+        "skal_varsle": true,
+        "til": ["Team Myntkammer"],
+        "kopi": [],
+        "tillegg": [],
+        "krevd_team": ["Team Myntkammer"],
+        "valgfrie_team": [],
+        "forbudte_team": ["Team Grunnmur", "Team Spåkula", "Team Ugla", "Team Nøkkelknippe", "Team Portvokter"]
+      },
+      "vet_ikke": {
+        "ikke_tom": true,
+        "ma_matche": null
+      },
+      "ma_nevne_i_arsak": "2\\.14\\.0|utrulling|release|deploy|ny versjon|ny kode|rollout",
+      "feller": [
+        {
+          "id": "kortnett",
+          "beskrivelse": "Kortnett-treghet (INC-2026-037) som årsak. Gir timeout, ikke 5xx, og loggene viser Kortnett normal (177-365 ms) frem til alarmen.",
+          "monster": "kortnett",
+          "unntak": ["avvisning"]
+        }
+      ],
+      "begrunnelse": "Release 2.14.0 (release-tog natt-1029) startet 02:51:12 (deploy-historikk: ny gebyrberegning, valuta fra kortinfo-objektet). Første TypeError på 'valuta' i beregnGebyr (gebyr.js:88) kl 02:52:30, bare utenlandske kort, 500 i gatewayen. Runbook betaling.md (2026-08-20) steg 2-3: TypeError rett etter utrulling gir rollback med 'deploy rollback betaling'. Presedens INC-2026-009. Kortnett svarer 177-365 ms i loggen frem til 03:12, og INC-2026-037 (Kortnett) ga ingen 5xx. Alarmen er kritisk, så vakt varsles alltid (BS-12), her Team Myntkammer (eier betaling, årsak og alarm i samme tjeneste, derfor ingen kopi)."
+    },
+    "ALARM-0320": {
+      "alvorlighet": "høy",
+      "berort_tjeneste": "sok",
+      "arsak_tjeneste_godtatt": ["sok"],
+      "tiltak": "pause_reindeks_sok",
+      "forbudte_tiltak": ["rollback_betaling", "pause_leveringsvarsler"],
+      "varsling": {
+        "skal_varsle": false,
+        "til": [],
+        "kopi": [],
+        "tillegg": [],
+        "krevd_team": [],
+        "valgfrie_team": [],
+        "forbudte_team": ["Team Spåkula", "Team Myntkammer", "Team Ugla", "Team Nøkkelknippe", "Team Grunnmur", "Team Portvokter"]
+      },
+      "vet_ikke": {
+        "ikke_tom": true,
+        "ma_matche": null
+      },
+      "ma_nevne_i_arsak": "reindeks|fullindeks",
+      "feller": [
+        {
+          "id": "klient_10_4_7_22",
+          "beskrivelse": "Intern klient 10.4.7.22 som rate-limites (INC-2026-044) er støy uten brukerpåvirkning.",
+          "monster": "10\\.4\\.7\\.22|rate-?limit\\p{L}*|prisovervåk\\p{L}*",
+          "unntak": ["avvisning"]
+        },
+        {
+          "id": "synonymliste",
+          "beskrivelse": "Synonymlista fra sok 3.9.1 (27/10) er avledende.",
+          "monster": "synonym\\p{L}*|3\\.9\\.1",
+          "unntak": ["avvisning"]
+        },
+        {
+          "id": "rangering",
+          "beskrivelse": "Ny rangering fra sok 3.9.0 (23/10) er avledende.",
+          "monster": "rangering\\p{L}*|3\\.9\\.0",
+          "unntak": ["avvisning"]
+        }
+      ],
+      "begrunnelse": "Nattlig reindeks startet 03:00:00 som fullindeks (2,1 M dokumenter), jf. runbook sok.md (2026-06-27, etter INC-2026-031): skal gå inkrementelt, ellers presses sok-node-2. Loggen viser heap 86 % (03:06:44), 88 % (03:08:10), 92 % (03:19:05), GC-pauser og stigende p95 (2,1 s kl 03:08, 4,1 s kl 03:19). Tiltak: 'sokctl reindeks pause produkter-v7' (reverserbart). Runbook: ingen trenger å vekkes hvis pausen virker, så ingen varsling (BS-12, ikke kritisk). Støy: klient 10.4.7.22 (INC-2026-044, logget 02:41 og 03:17), synonymliste 3.9.1 og rangering 3.9.0."
+    },
+    "ALARM-0331": {
+      "alvorlighet": "høy",
+      "berort_tjeneste": "varsling",
+      "arsak_tjeneste_godtatt": ["varsling", "ukjent"],
+      "tiltak": "pause_leveringsvarsler",
+      "forbudte_tiltak": ["rollback_betaling", "pause_reindeks_sok"],
+      "varsling": {
+        "skal_varsle": true,
+        "til": ["Team Ugla"],
+        "kopi": [],
+        "tillegg": ["Team Nøkkelknippe"],
+        "krevd_team": ["Team Ugla", "Team Nøkkelknippe"],
+        "valgfrie_team": [],
+        "forbudte_team": ["Team Myntkammer", "Team Spåkula", "Team Portvokter"]
+      },
+      "vet_ikke": {
+        "ikke_tom": true,
+        "ma_matche": "uavklart|ukjent\\s+(rot)?årsak|(rot)?årsak\\p{L}*\\s+(er\\s+)?(ukjent|uavklart|usikker)|ikke\\s+(\\p{L}+\\s+){0,3}(avklart|fastslått|klarlagt|kjent)|usikker\\p{L}*"
+      },
+      "ma_nevne_i_arsak": "smsbud|429|timeout|sms|retry",
+      "feller": [
+        {
+          "id": "smsbud_nede",
+          "beskrivelse": "'SmsBud er nede' som slått fast årsak. SmsBud sin statusside viser ingen avvik, og INC-2026-018 viser at siden henger etter. Belegget er bare timeout og 429.",
+          "monster": "smsbud\\p{L}*[^.;\\n]{0,40}(er\\s+nede|nede|driftsavbrudd|utfall)|(nede|driftsavbrudd|utfall)\\s+hos\\s+smsbud",
+          "unntak": ["avvisning", "forbehold"]
+        },
+        {
+          "id": "retry_policy_som_aarsak",
+          "beskrivelse": "Retry-policyen (varsling 1.22.0, 26/10, 5 forsøk med kort pause) som slått fast årsak. Kan forsterke 429, men er ikke bevist.",
+          "monster": "retry\\p{L}*|1\\.22\\.0|smsbud-?klient\\p{L}*|forsøk\\s+med\\s+kort\\s+pause",
+          "unntak": ["avvisning", "forbehold"]
+        },
+        {
+          "id": "kunde_db_som_aarsak",
+          "beskrivelse": "VACUUM FULL / kunde-db (03:30) som årsak til SMS-feilen. SMS-timeouts mot SmsBud startet 03:22, før vedlikeholdet.",
+          "monster": "vacuum|kunde-?db|sesjoner",
+          "unntak": ["avvisning", "forbehold"]
+        }
+      ],
+      "begrunnelse": "SmsBud-timeouts fra 03:22:15 og HTTP 429 fra 03:23:40 (varsling-loggen, 'forsøk x av 5' etter ny retry-policy i varsling 1.22.0 den 26/10 11:30). Kø sms-utgående 1 240 kl 03:27 (runbook varsling.md, oppdatert 2026-04-05: over 1000 gir vurdering av 'varslingctl pause mal=leveringsvarsel'). Engangskoder er rammet (innlogging 03:28:05: engangskode-SMS ikke levert), og runbook krever beskjed til Team Nøkkelknippe. Årsaken er uavklart: SmsBud-statussiden viser ingen avvik (men oppdateres sent), 429 peker på at vi sender for mye, timeout peker på SmsBud, og policyen kan forsterke. Pausen demper bare delvis (engangskoder går også til SmsBud). Derfor kreves ikke-tom 'vet_ikke' med uavklart årsak (BS-24) og varsling til Team Ugla pluss Team Nøkkelknippe (BS-12, BS-13). Presedens INC-2026-018 (SmsBud-utfall) er ikke bevis for dette tilfellet."
+    },
+    "ALARM-0340": {
+      "alvorlighet": "kritisk",
+      "berort_tjeneste": "api-gateway",
+      "arsak_tjeneste_godtatt": ["kunde-db"],
+      "tiltak": "ingen",
+      "forbudte_tiltak": ["rollback_betaling", "pause_reindeks_sok", "pause_leveringsvarsler"],
+      "varsling": {
+        "skal_varsle": true,
+        "til": ["Team Grunnmur"],
+        "kopi": ["Team Portvokter"],
+        "tillegg": [],
+        "krevd_team": ["Team Grunnmur", "Team Portvokter"],
+        "valgfrie_team": ["Team Nøkkelknippe", "Team Myntkammer"],
+        "forbudte_team": ["Team Spåkula", "Team Ugla"]
+      },
+      "vet_ikke": {
+        "ikke_tom": false,
+        "ma_matche": null
+      },
+      "ma_nevne_i_arsak": "vacuum|lås|lock|vedlikehold|sesjoner|tilkobling",
+      "feller": [
+        {
+          "id": "pgbouncer",
+          "beskrivelse": "pgbouncer er fjernet 12. mars 2026 (INC-2026-014, tjenester.json). kunde-db.md (2025-11-04) er utdatert; restart av pgbouncer er feil.",
+          "monster": "pgbouncer|db-proxy",
+          "unntak": ["avvisning"]
+        },
+        {
+          "id": "gateway_konfig",
+          "beskrivelse": "Gateway-konfig timeouts.yaml r17 (28/10) gjelder bare /api/rapport (30 til 60 s). Loggen 03:36:00 'konfig lastet' er avledende.",
+          "monster": "timeouts?\\.yaml|(gateway|api-gateway)-?\\s*(konfig\\p{L}*|timeout\\p{L}*)|konfig\\p{L}*\\s*(r17|endring\\p{L}*)|/api/rapport",
+          "unntak": ["avvisning"]
+        },
+        {
+          "id": "innlogging_release",
+          "beskrivelse": "innlogging 4.8.0 (passkey, 20/10) og 4.8.1 (28/10) er avledende. Innlogging er offer for databaselåsen.",
+          "monster": "passkey\\p{L}*|4\\.8\\.[01]",
+          "unntak": ["avvisning"]
+        }
+      ],
+      "begrunnelse": "VACUUM FULL sesjoner startet 03:30:00-01 (kunde-db-cron) og tar AccessExclusiveLock på sesjoner (41 GB). Innlogging-spørringer mot sesjoner går fra 2,4 s (03:31:20) til 21 s (03:39:30). Tilkoblinger 88/200 (03:31:30), 187 (03:33:30), 198 (03:34:30), deretter FATAL 'remaining connection slots' (03:34:40 og videre) og 'too many connections' i innlogging. Gatewayen gir 504 med upstream=innlogging, 504-andel 17,2 % kl 03:40:00. Cron ble flyttet fra søndag 04:00 til torsdag 03:30 den 22/10 (deploy-historikk, kunde-db r41, av Even Gravdal), og 29/10 er en torsdag. Presedens INC-2026-041 (sesjoner låst, 504 på /api/konto). Årsaken ligger i kunde-db, så Team Grunnmur får varselet og Team Portvokter kopi (BS-13). Alarmen er kritisk, så varsling er påkrevd (BS-12). Ingen tiltak: api-gateway har ingen runbook, kunde-db.md er utdatert (pgbouncer, søndag 04:00), og ingen tillatt tiltak passer (BS-07, BS-08, BS-09)."
+    }
+  }
+}
