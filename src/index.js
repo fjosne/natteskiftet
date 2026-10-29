@@ -1,6 +1,7 @@
 // Startpunktet: npm start -- "spørsmålet ditt"
 import { kjørAgent } from './agent.js';
 import { system, eksempelOppgave, verktøy } from './verktoy.js';
+import { lagAlarmInput } from './alarm.js';
 
 try {
   process.loadEnvFile();
@@ -13,7 +14,18 @@ if (!process.env.ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const oppgave = process.argv.slice(2).join(' ') || eksempelOppgave;
+const arg = process.argv.slice(2).join(' ') || eksempelOppgave;
+
+let input;
+try {
+  input = lagAlarmInput(arg);
+} catch (feil) {
+  console.error(feil.message);
+  process.exit(1);
+}
+
+// Oppgaveteksten inneholder også merknaden om klokkeslett, så den skrives ut sammen med den.
+const { oppgave, nå, alarm } = input;
 console.log(`\n🎃 ${oppgave}\n`);
 
-await kjørAgent({ system, oppgave, verktøy, nå: Infinity, alarm: null });
+await kjørAgent({ system, oppgave, verktøy, nå, alarm });

@@ -1,8 +1,9 @@
 import { lesJson, tilMs } from './felles.js';
 
-function sokILogger({ tjeneste, niva, fra, til, tekst, maks = 50 } = {}) {
+function sokILogger({ tjeneste, niva, fra, til, tekst, maks = 50 } = {}, kontekst = {}) {
   const fraMs = fra ? tilMs(fra) : -Infinity;
-  const tilMsVerdi = til ? tilMs(til) : Infinity;
+  // Loggene kappes ved alarmtidspunktet: øvre grense er min(til, nå).
+  const tilMsVerdi = Math.min(til ? tilMs(til) : Infinity, kontekst.nå ?? Infinity);
   const logger = lesJson('logger.json');
   const kjente = [...new Set(logger.map((l) => l.tjeneste))];
   if (tjeneste && !kjente.includes(tjeneste)) throw new Error(`Ukjent tjeneste «${tjeneste}». Gyldige: ${kjente.join(', ')}`);
@@ -26,6 +27,7 @@ export default {
       'Søker i loggene fra natt til 29. oktober 2026 (ca 02:30-03:50). Alle filtre er valgfrie og kan kombineres. ' +
       'Tjenester: api-gateway, innlogging, betaling, sok, varsling, kunde-db. ' +
       'Start gjerne bredt (én tjeneste, et tidsvindu rundt alarmen) og snevre inn med tekst når du ser noe interessant. ' +
+      'Loggene går bare til alarmtidspunktet. ' +
       'Husk at feilen ofte sitter i en annen tjeneste enn den som alarmerer.',
     input_schema: {
       type: 'object',
