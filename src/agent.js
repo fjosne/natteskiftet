@@ -26,6 +26,41 @@ let klient;
 const grå = (t) => `\x1b[90m${t}\x1b[0m`;
 const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;
 const grønn = (t) => `\x1b[32m${t}\x1b[0m`;
+const kursivGul = (t) => `\x1b[3;33m${t}\x1b[0m`;
+
+// Alle verktøy unntatt lever_rapport får et påkrevd «hvorfor»-felt, så utskriften viser hvorfor hvert kall gjøres.
+// lever_rapport har fast skjema som valideres i koden, og er selve slutten på vakten.
+const UTEN_HVORFOR = ['lever_rapport'];
+
+// Returnerer en kopi av definisjonen med hvorfor først. Verktøyfilenes egne skjemaer muteres ikke.
+function medHvorfor(definisjon) {
+  if (UTEN_HVORFOR.includes(definisjon.name)) return definisjon;
+  const skjema = definisjon.input_schema ?? { type: 'object' };
+  return {
+    ...definisjon,
+    input_schema: {
+      ...skjema,
+      properties: {
+        hvorfor: {
+          type: 'string',
+          description: 'Kort begrunnelse (én setning) for hvorfor du gjør dette kallet nå: hvilken hypotese du tester eller hva du vil finne ut.',
+        },
+        ...skjema.properties,
+      },
+      required: ['hvorfor', ...(skjema.required ?? []).filter((r) => r !== 'hvorfor')],
+    },
+  };
+}
+
+// Skriver kallet og begrunnelsen. Mangler hvorfor, kjøres kallet likevel.
+function skrivKall(kall, hvorfor) {
+  const { hvorfor: _, ...resten } = kall.input ?? {};
+  console.log(oransje(`→ ${kall.name}`) + grå(` ${JSON.stringify(resten)}`));
+  if (!UTEN_HVORFOR.includes(kall.name)) {
+    const tekst = typeof hvorfor === 'string' && hvorfor.trim() ? hvorfor.trim() : '(ikke oppgitt)';
+    console.log(kursivGul(`  ↳ hvorfor: ${tekst}`));
+  }
+}
 
 // kontekst opprettes per kjøring og sendes som andre argument til hvert verktøy:
 // kjør(input, kontekst). Feltene:
@@ -55,7 +90,7 @@ export async function kjørAgent({ system, oppgave, verktøy, nå, alarm }) {
       max_tokens: 16000,
       output_config: { effort },
       system,
-      tools: aktive.map((v) => v.definisjon),
+      tools: aktive.map((v) => medHvorfor(v.definisjon)),
       messages,
     });
 
@@ -82,7 +117,7 @@ export async function kjørAgent({ system, oppgave, verktøy, nå, alarm }) {
     const kall = svar.content.filter((b) => b.type === 'tool_use');
     const resultater = [];
     for (const k of kall) {
-      console.log(oransje(`→ ${k.name}`) + grå(` ${JSON.stringify(k.input)}`));
+      skrivKall(k, k.input?.hvorfor);
       resultater.push(await kjørVerktøy(etterNavn, k, kontekst));
     }
     messages.push({ role: 'user', content: resultater });
@@ -131,7 +166,7 @@ async function tvungenRapport({ messages, etterNavn, verktøy, kontekst, system,
     console.log(oransje('✖ Modellen leverte ingen rapport i siste runde.'));
     return resultatFra(svar);
   }
-  console.log(oransje(`→ ${kall.name}`) + grå(` ${JSON.stringify(kall.input)}`));
+  skrivKall(kall);
   const resultat = await kjørVerktøy(etterNavn, kall, kontekst);
   if (!kontekst.rapport) {
     // Valideringen avviste rapporten, og vi har ingen flere runder. Bygg en minimal rapport av det modellen sendte.
@@ -178,6 +213,7 @@ async function varsleAutomatisk({ verktøy, kontekst, rapport }) {
     `Sannsynlig årsak: ${rapport.sannsynlig_arsak} Ikke sjekket: ${rapport.ikke_sjekket.join('; ')}`;
   try {
     console.log(oransje('→ varsle_vakt') + grå(` (automatisk, ${team})`));
+    console.log(kursivGul('  ↳ hvorfor: automatisk: iterasjonstaket nådd og ingen er varslet (BS-19)'));
     await varsle.kjør({ til: team, kopi: [], melding }, kontekst);
     rapport.varslede_team = [...new Set([...(rapport.varslede_team ?? []), ...kontekst.varslet])];
   } catch (e) {
@@ -219,7 +255,13 @@ async function kjørVerktøy(etterNavn, kall, kontekst) {
     return feil(kall, `Ukjent verktøy «${kall.name}». Gyldige: ${[...etterNavn.keys()].join(', ')}`);
   }
   try {
-    const resultat = await v.kjør(kall.input, kontekst);
+    // Verktøyene kjenner ikke hvorfor-feltet.
+    let input = kall.input;
+    if (!UTEN_HVORFOR.includes(kall.name) && input && typeof input === 'object') {
+      const { hvorfor: _, ...resten } = input;
+      input = resten;
+    }
+    const resultat = await v.kjør(input, kontekst);
     const tekst = typeof resultat === 'string' ? resultat : JSON.stringify(resultat, null, 2);
     console.log(grønn(`  ✓ ${tekst.length} tegn tilbake`));
     return { type: 'tool_result', tool_use_id: kall.id, content: tekst };
