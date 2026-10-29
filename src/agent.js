@@ -13,7 +13,16 @@ const grå = (t) => `\x1b[90m${t}\x1b[0m`;
 const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;
 const grønn = (t) => `\x1b[32m${t}\x1b[0m`;
 
-export async function kjørAgent({ system, oppgave, verktøy }) {
+// kontekst opprettes per kjøring og sendes som andre argument til hvert verktøy:
+// kjør(input, kontekst). Feltene:
+//   nå              Tidspunktet agenten «lever» på, i ms (som Date.parse). Infinity = ingen grense.
+//   alarm           Alarmen som utløste kjøringen (objekt), eller null.
+//   hentedeRunbooks Set med tjenestenavn agenten har hentet runbook for.
+//   varslet         Liste med team agenten har varslet.
+//   rapport         Den ferdige situasjonsrapporten. Settes av lever_rapport, ellers null.
+export async function kjørAgent({ system, oppgave, verktøy, nå, alarm }) {
+  const kontekst = { nå, alarm, hentedeRunbooks: new Set(), varslet: [], rapport: null };
+
   // Bare verktøy med en kjør-funksjon sendes til modellen. Stubbene i
   // verktoy.js blir med av seg selv når dere implementerer dem.
   const aktive = verktøy.filter((v) => v.kjør);
@@ -55,7 +64,7 @@ export async function kjørAgent({ system, oppgave, verktøy }) {
     const resultater = [];
     for (const k of kall) {
       console.log(oransje(`→ ${k.name}`) + grå(` ${JSON.stringify(k.input)}`));
-      resultater.push(await kjørVerktøy(etterNavn, k));
+      resultater.push(await kjørVerktøy(etterNavn, k, kontekst));
     }
     messages.push({ role: 'user', content: resultater });
   }
@@ -63,13 +72,13 @@ export async function kjørAgent({ system, oppgave, verktøy }) {
   console.log(oransje(`\n✖ Stoppet etter ${MAX_ITERASJONER} runder (MAX_ITERASJONER).`));
 }
 
-async function kjørVerktøy(etterNavn, kall) {
+async function kjørVerktøy(etterNavn, kall, kontekst) {
   const v = etterNavn.get(kall.name);
   if (!v) {
     return feil(kall, `Ukjent verktøy «${kall.name}». Gyldige: ${[...etterNavn.keys()].join(', ')}`);
   }
   try {
-    const resultat = await v.kjør(kall.input);
+    const resultat = await v.kjør(kall.input, kontekst);
     const tekst = typeof resultat === 'string' ? resultat : JSON.stringify(resultat, null, 2);
     console.log(grønn(`  ✓ ${tekst.length} tegn tilbake`));
     return { type: 'tool_result', tool_use_id: kall.id, content: tekst };

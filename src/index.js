@@ -16,4 +16,4 @@ if (!process.env.ANTHROPIC_API_KEY) {
 const oppgave = process.argv.slice(2).join(' ') || eksempelOppgave;
 console.log(`\n🎃 ${oppgave}\n`);
 
-await kjørAgent({ system, oppgave, verktøy });
+await kjørAgent({ system, oppgave, verktøy, nå: Infinity, alarm: null });
