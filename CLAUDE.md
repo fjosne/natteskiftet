@@ -34,6 +34,8 @@ One dependency (`@anthropic-ai/sdk`):
 
 Live: `sok_i_logger`, `hent_runbook`, `sjekk_deploy_historikk`, `finn_lignende_hendelser`, `hent_tjenesteinfo`, `utfor_tiltak` (enum of three allowed actions, SIMULATED, requires the service's runbook to be fetched first), `varsle_vakt` (`{ til, kopi, melding }`, SIMULATED) and `lever_rapport` (fixed schema, validated in code, ends the loop). `agent.js` only sends tools whose `kjør` is a function (`verktøy.filter(v => v.kjør)`); a tool with `kjør: null` is a stub invisible to the model. A tool returns a string or JSON-serialisable object (objects are `JSON.stringify`'d).
 
+All tools except `lever_rapport` get a required `hvorfor` field (one-sentence reason for the call). It is added generically in `agent.js` (`medHvorfor`, on a copy of the schema, so tool files are untouched), printed as `↳ hvorfor: …` under `→ tool`, and stripped from the input before `kjør` runs, so tools never see it. If the model omits it the call still runs and prints `(ikke oppgitt)`. The automatic `varsle_vakt` call prints a fixed reason.
+
 Conventions that matter:
 - Tool names must be ASCII (`sok_i_logger`, not `søk_i_logger`).
 - The tool `description` is effectively a prompt to the model: say when to use it and what to watch out for.
