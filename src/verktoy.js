@@ -8,6 +8,7 @@ import finnLignendeHendelser from './verktoy/finn_lignende_hendelser.js';
 import hentTjenesteinfo from './verktoy/hent_tjenesteinfo.js';
 import utforTiltak from './verktoy/utfor_tiltak.js';
 import varsleVakt from './verktoy/varsle_vakt.js';
+import leverRapport from './verktoy/lever_rapport.js';
 
 export const system = `Du tar første vakt når en alarm går om natta, før et menneske rekker å åpne laptopen.
 Grav i loggene og de andre kildene til du har en hypotese om hva som skjer og hvorfor.
@@ -20,5 +21,5 @@ export const eksempelOppgave =
 
 export const verktøy = [
   sokILogger, hentRunbook, sjekkDeployHistorikk, finnLignendeHendelser, hentTjenesteinfo,
-  utforTiltak, varsleVakt,
+  utforTiltak, varsleVakt, leverRapport,
 ];
