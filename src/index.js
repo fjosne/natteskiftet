@@ -2,15 +2,12 @@
 import { kjørAgent } from './agent.js';
 import { system, eksempelOppgave, verktøy } from './verktoy.js';
 import { lagAlarmInput } from './alarm.js';
+import { lastEnv } from './miljo.js';
 
-try {
-  process.loadEnvFile();
-} catch {
-  // Ingen .env — da må ANTHROPIC_API_KEY være satt i miljøet.
-}
+lastEnv();
 
 if (!process.env.ANTHROPIC_API_KEY) {
-  console.error('Mangler ANTHROPIC_API_KEY. Kopier .env.example til .env og lim inn nøkkelen.');
+  console.error('Mangler ANTHROPIC_API_KEY. Kopier .env.example til .env (i repoet eller mappa over) og lim inn nøkkelen.');
   process.exit(1);
 }
 

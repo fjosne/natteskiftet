@@ -10,7 +10,7 @@ Hackathon starter repo ("Natteskiftet"): an on-call agent that takes first shift
 
 ```bash
 npm install
-cp .env.example .env                 # then set ANTHROPIC_API_KEY (.env is gitignored, never commit it)
+cp .env.example .env                 # then set ANTHROPIC_API_KEY (.env is gitignored, never commit it; ../.env is used as fallback, see src/miljo.js)
 npm start                            # runs the default example alarm (betaling 03:12)
 npm start -- "ALARM kl 03:40: api-gateway gir 17 % 504"   # custom alarm (free text)
 npm start -- ALARM-0340              # alarm by ID from data/alarmer.json
