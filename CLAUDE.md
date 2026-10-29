@@ -12,24 +12,27 @@ Hackathon starter repo ("Natteskiftet"): an on-call agent that takes first shift
 npm install
 cp .env.example .env                 # then set ANTHROPIC_API_KEY (.env is gitignored, never commit it)
 npm start                            # runs the default example alarm (betaling 03:12)
-npm start -- "ALARM kl 03:40: api-gateway gir 17 % 504"   # custom alarm
+npm start -- "ALARM kl 03:40: api-gateway gir 17 % 504"   # custom alarm (free text)
+npm start -- ALARM-0340              # alarm by ID from data/alarmer.json
 ```
 
 There is no build step, linter, type-checker or test suite configured. Requires Node >= 20.12 (uses `process.loadEnvFile` and `import.meta.dirname`). ESM only (`"type": "module"`).
 
-Optional env vars: `MODELL` (default `claude-sonnet-5-5`), `MAX_ITERASJONER` (default 10, caps agent loop rounds).
+Optional env vars: `MODELL` (default `claude-sonnet-5-5`), `MAX_ITERASJONER` (default 15, caps agent loop rounds; when the cap is hit the agent makes one final forced `lever_rapport` call, marks the report `ufullstendig`, and calls `varsle_vakt` itself if nobody has been notified), `EFFORT` (default `medium`; one of `low`, `medium`, `high`, `xhigh`, `max`; invalid values fail at startup before any API call). The env vars are read inside `kjørAgent`, so values from `.env` take effect.
 
 ## Architecture
 
-Three files in `src/`, one dependency (`@anthropic-ai/sdk`):
+One dependency (`@anthropic-ai/sdk`):
 
-- `index.js` loads `.env`, takes the alarm text from argv (falls back to `eksempelOppgave`), and calls `kjørAgent`.
-- `agent.js` is the whole agent loop: call `messages.create`, print text blocks, and if `stop_reason` is `tool_use` run every requested tool and send all `tool_result` blocks back in a single user message. It stops on `end_turn`, `refusal`, `max_tokens`, or after `MAX_ITERASJONER`. Tool errors are returned to the model with `is_error: true` rather than thrown, so the model can retry.
-- `verktoy.js` holds the system prompt, the example alarm and the `verktøy` array. Each tool is `{ definisjon, kjør }`: `definisjon` is the Anthropic tool schema the model sees, `kjør` is the implementation.
+- `index.js` loads `.env`, turns argv into `{ oppgave, nå, alarm }` via `alarm.js` (falls back to `eksempelOppgave`), and calls `kjørAgent`.
+- `alarm.js` resolves an alarm ID from `data/alarmer.json`, or parses free text: the clock time in the text becomes «nå»; without one, the last log line is used and the task text says so. Free-text alarms have `alvorlighet: null`.
+- `agent.js` is the whole agent loop: call `messages.create`, print text blocks, and if `stop_reason` is `tool_use` run every requested tool and send all `tool_result` blocks back in a single user message. It stops on `end_turn`, `refusal`, `max_tokens`, after a valid `lever_rapport`, or after `MAX_ITERASJONER` (then forces a final report). Tool errors are returned to the model with `is_error: true` rather than thrown, so the model can retry. `kjørAgent` returns `{ rapport, varslet, kontekst, svar }`.
+- `verktoy.js` holds the system prompt, the example alarm and the `verktøy` array, imported from one file per tool in `src/verktoy/`. Each tool is `{ definisjon, kjør }`: `definisjon` is the Anthropic tool schema the model sees, `kjør(input, kontekst)` is the implementation. Shared helpers (`DATA`, `lesJson`, `tilMs`) live in `src/verktoy/felles.js`.
+- `kontekst` is created per run in `agent.js` (fields documented there): `nå` (alarm time; all tools cut data after it), `alarm`, `hentedeRunbooks` (required by `utfor_tiltak`), `varslet`, `rapport`.
 
-### Tool stubs
+### Tools
 
-`agent.js` only sends tools whose `kjør` is a function (`verktøy.filter(v => v.kjør)`). Tools with `kjør: null` are stubs and are invisible to the model until implemented. Currently only `sok_i_logger` is live; `hent_runbook`, `sjekk_deploy_historikk` and `finn_lignende_hendelser` are stubs with TODO comments describing the intended implementation. To enable one, replace `kjør: null` with a function that takes the model's input and returns a string or JSON-serialisable object (objects are `JSON.stringify`'d).
+Live: `sok_i_logger`, `hent_runbook`, `sjekk_deploy_historikk`, `finn_lignende_hendelser`, `hent_tjenesteinfo`, `utfor_tiltak` (enum of three allowed actions, SIMULATED, requires the service's runbook to be fetched first), `varsle_vakt` (`{ til, kopi, melding }`, SIMULATED) and `lever_rapport` (fixed schema, validated in code, ends the loop). `agent.js` only sends tools whose `kjør` is a function (`verktøy.filter(v => v.kjør)`); a tool with `kjør: null` is a stub invisible to the model. A tool returns a string or JSON-serialisable object (objects are `JSON.stringify`'d).
 
 Conventions that matter:
 - Tool names must be ASCII (`sok_i_logger`, not `søk_i_logger`).
