@@ -20,7 +20,8 @@ function lesInnstillinger() {
   return { modell: process.env.MODELL ?? 'claude-sonnet-5-5', effort, maks };
 }
 
-const klient = new Anthropic();
+// Opprettes ved første kjøring, av samme grunn som over: API-nøkkelen kan komme fra .env.
+let klient;
 
 const grå = (t) => `\x1b[90m${t}\x1b[0m`;
 const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;
@@ -37,6 +38,7 @@ const grønn = (t) => `\x1b[32m${t}\x1b[0m`;
 // uten å levere rapport. svar er det siste svaret fra modellen.
 export async function kjørAgent({ system, oppgave, verktøy, nå, alarm }) {
   const { modell, effort, maks } = lesInnstillinger();
+  klient ??= new Anthropic();
   const kontekst = { nå, alarm, hentedeRunbooks: new Set(), varslet: [], rapport: null };
   const resultatFra = (svar) => ({ rapport: kontekst.rapport, varslet: kontekst.varslet, kontekst, svar });
 
